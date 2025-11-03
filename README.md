@@ -66,6 +66,42 @@ Response (shape):
 | MAPE / sMAPE | Relative error (careful with zeros) |
 | Pinball (q) | Probabilistic forecast quality |
 
+### WAPE Definition & Rationale
+Weighted Absolute Percentage Error (WAPE) measures total absolute forecast error relative to total actual demand:
+
+$$\text{WAPE} = \frac{\sum_{i=1}^n |y_i - \hat{y}_i|}{\sum_{i=1}^n |y_i|} \times 100\%$$
+
+Why it matters:
+* Stable when many small or zero-demand days exist (MAPE can explode).
+* Directly interpretable as "percent of volume mis-forecast".
+* Portfolio-level primary KPI. We also report Forecast Accuracy = 100 - WAPE.
+
+Difference vs MAPE:
+* MAPE averages per-point percentage error; small denominators distort results.
+* WAPE aggregates volume first, reducing volatility from intermittent products.
+
+Edge case: If total actual demand is zero, WAPE is undefined (we emit `NaN`).
+
+### Baseline Model Comparison (Latest Prophet Run)
+Source: `artifacts/metrics_prophet_baseline.parquet` (25 items, 28-day horizon) & `artifacts/backtest_prophet_baseline.parquet` (5 rolling windows).
+
+| Model | RMSE | MAE | WAPE (%) | sMAPE (%) | Forecast Accuracy (%) | Notes |
+|-------|------|-----|----------|-----------|-----------------------|-------|
+| Naive (last value) | 18.97 | 16.13 | 53.91 | 57.29 | 46.09 | Mean across 25 items |
+| Seasonal Naive | 16.53 | 13.00 | 43.96 | 46.41 | 56.04 | Weekly pattern (last 7 days repeated) |
+| Prophet (current avg) | 12.75 | 10.22 | 35.55 | 35.54 | 64.45 | Mean across 25 items |
+| Prophet (single example) | 20.73 | 18.23 | 45.81 | 42.63 | 54.19 | Item: HOBBIES_1_178 |
+| Prophet (backtest mean) | 26.80 | 21.20 | 46.93 | 44.60 | 53.07 | 5 rolling windows |
+| N-BEATS (planned) | TBD | TBD | TBD | TBD | TBD | Deep residual stacks (next) |
+| TFT (planned) | TBD | TBD | TBD | TBD | TBD | Multi-horizon with attention |
+
+Notes:
+* Forecast Accuracy = 100 - WAPE.
+* Extremely large MAPE in backtest (3.27e9) indicates division-by-near-zero volatility; rely on WAPE/sMAPE for stability.
+* Naive & Seasonal Naive baselines will be added to anchor improvement delta.
+
+Historical table retained for planned models; update again after N-BEATS training.
+
 ## Modeling Focus
 Depth-first: optimize N-BEATS (hyperparameters, early stopping, learning rate scheduling, gradient clipping, lagged feature variants). TFT added after stable N-BEATS benchmark.
 
