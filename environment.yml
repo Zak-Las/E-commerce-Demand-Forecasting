@@ -126,4 +126,18 @@ dependencies:
       - webencodings==0.5.1
       - xarray==2025.9.0
       - yarg==0.1.9
+  # --- Added for project scaffolding ---
+  - fastapi==0.115.0
+  - uvicorn==0.30.6
+  - pydantic==2.9.2
+  - prophet==1.1.6
+  - pytorch-lightning==2.4.0
+  - kaggle==1.6.17
+  - ruff==0.6.9
+  - black==24.10.0
+  - python-dotenv==1.0.1
+  - rich==13.9.4
+  - tqdm==4.66.5
+  - polars==1.14.0
+  - pyarrow==17.0.0
 
