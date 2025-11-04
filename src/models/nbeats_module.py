@@ -1,11 +1,24 @@
-"""N-BEATS LightningModule placeholder.
+"""Minimal N-BEATS style LightningModule.
 
-Implements skeleton to be filled with actual block definitions.
-Focus: Clean interface for training & inference.
+Implements simplified residual stacking with blocks producing
+backcast (for residual subtraction) and forecast (target horizon).
+
+Simplifications vs original paper:
+    - Generic fully-connected block (no explicit trend/seasonality bases yet)
+    - Identity basis: theta_backcast directly sized to input_length;
+        theta_forecast directly sized to forecast_length.
+    - No weight sharing between stacks.
+    - Loss: MSE; logs MAE and WAPE for monitoring.
+
+Roadmap extensions:
+    - Add basis functions (polynomial trend, Fourier seasonality)
+    - Quantile heads for probabilistic forecasts
+    - Per-item embedding inputs
+    - Mixed horizon support
 """
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 import torch
 from torch import nn
 import pytorch_lightning as pl
@@ -13,60 +26,104 @@ import pytorch_lightning as pl
 
 @dataclass
 class NBeatsConfig:
-    input_length: int = 28 * 4  # lookback window
-    forecast_length: int = 30
+    input_length: int = 28 * 4  # lookback window length
+    forecast_length: int = 30   # horizon
     hidden_dim: int = 256
     num_stacks: int = 4
     num_blocks_per_stack: int = 3
+    n_layers: int = 4           # FC layers per block
+    layer_width: int = 512
     learning_rate: float = 1e-3
+    dropout: float = 0.0
 
 
-class SimpleBlock(nn.Module):
-    def __init__(self, in_features: int, hidden_dim: int, forecast_length: int):
+class NBeatsBlock(nn.Module):
+    """Generic fully-connected block outputting backcast & forecast."""
+
+    def __init__(self, input_length: int, forecast_length: int, layer_width: int, n_layers: int, dropout: float = 0.0):
         super().__init__()
-        self.fc = nn.Sequential(
-            nn.Linear(in_features, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-        )
-        self.theta = nn.Linear(hidden_dim, forecast_length)
+        layers = []
+        in_f = input_length
+        for i in range(n_layers):
+            layers.append(nn.Linear(in_f if i == 0 else layer_width, layer_width))
+            layers.append(nn.ReLU())
+            if dropout > 0:
+                layers.append(nn.Dropout(dropout))
+        self.fc = nn.Sequential(*layers)
+        self.backcast_head = nn.Linear(layer_width, input_length)
+        self.forecast_head = nn.Linear(layer_width, forecast_length)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         h = self.fc(x)
-        return self.theta(h)
+        backcast = self.backcast_head(h)
+        forecast = self.forecast_head(h)
+        return backcast, forecast
 
 
 class NBeatsModule(pl.LightningModule):
-    def __init__(self, config: NBeatsConfig | None = None):
+    def __init__(self, config: Optional[NBeatsConfig] = None):
         super().__init__()
-        self.save_hyperparameters(ignore=["config"])  # lightning logging
         self.config = config or NBeatsConfig()
-        in_features = self.config.input_length
-        self.blocks = nn.ModuleList([
-            SimpleBlock(in_features, self.config.hidden_dim, self.config.forecast_length)
-            for _ in range(self.config.num_stacks * self.config.num_blocks_per_stack)
+        # Log hyperparameters (Lightning will recurse object repr)
+        self.save_hyperparameters({"input_length": self.config.input_length,
+                                   "forecast_length": self.config.forecast_length,
+                                   "num_stacks": self.config.num_stacks,
+                                   "num_blocks_per_stack": self.config.num_blocks_per_stack,
+                                   "n_layers": self.config.n_layers,
+                                   "layer_width": self.config.layer_width,
+                                   "learning_rate": self.config.learning_rate,
+                                   "dropout": self.config.dropout})
+        # Build stacks
+        self.stacks = nn.ModuleList([
+            nn.ModuleList([
+                NBeatsBlock(
+                    input_length=self.config.input_length,
+                    forecast_length=self.config.forecast_length,
+                    layer_width=self.config.layer_width,
+                    n_layers=self.config.n_layers,
+                    dropout=self.config.dropout,
+                )
+                for _ in range(self.config.num_blocks_per_stack)
+            ])
+            for _ in range(self.config.num_stacks)
         ])
         self.loss_fn = nn.MSELoss()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: (batch, input_length)
-        preds = [b(x) for b in self.blocks]
-        # naive aggregation: average outputs (placeholder for residual approach)
-        return torch.stack(preds, dim=0).mean(dim=0)
+        # Residual stacking: subtract backcast progressively
+        residual = x
+        forecast_total = torch.zeros(x.size(0), self.config.forecast_length, device=x.device)
+        for stack in self.stacks:
+            for block in stack:
+                backcast, forecast = block(residual)
+                residual = residual - backcast
+                forecast_total = forecast_total + forecast
+        return forecast_total
+
+    def _metrics(self, y_hat: torch.Tensor, y: torch.Tensor) -> dict:
+        mae = torch.mean(torch.abs(y_hat - y))
+        denom = torch.sum(torch.abs(y))
+        wape = torch.nan if denom == 0 else 100.0 * torch.sum(torch.abs(y_hat - y)) / denom
+        return {"mae": mae, "wape": wape}
 
     def training_step(self, batch, batch_idx: int):  # type: ignore
         x, y = batch
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
+        m = self._metrics(y_hat, y)
         self.log("train_loss", loss, prog_bar=True)
+        self.log("train_mae", m["mae"], prog_bar=True)
+        self.log("train_wape", m["wape"], prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx: int):  # type: ignore
         x, y = batch
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
+        m = self._metrics(y_hat, y)
         self.log("val_loss", loss, prog_bar=True)
+        self.log("val_mae", m["mae"], prog_bar=True)
+        self.log("val_wape", m["wape"], prog_bar=True)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.config.learning_rate)
