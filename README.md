@@ -121,3 +121,32 @@ TBD
 
 ## Contact
 Author: Zak (Toronto) – Data Science & ML Engineering focus.
+
+## Versioning & Releases
+This project uses Semantic Versioning (`MAJOR.MINOR.PATCH`) and documents changes in `CHANGELOG.md` (Keep a Changelog format).
+
+Current version: `0.1.0`.
+
+### Release Workflow
+1. Develop features on topic branches (e.g., `feat/nbeats-training`).
+2. Update `CHANGELOG.md` under `Unreleased` with notable additions/fixes.
+3. When cutting a release:
+	- Move entries from `Unreleased` to a new version section with date.
+	- Bump `__version__` in `src/__init__.py` and `version` in `pyproject.toml`.
+4. Tag the release (after merging to `main`):
+	```bash
+	git checkout main
+	git pull origin main
+	git tag -a v0.1.0 -m "Baseline evaluation foundation"
+	git push origin v0.1.0
+	```
+5. Create a GitHub Release referencing the tag (include metrics deltas and highlights).
+
+### Version Bumping Guidelines
+- Patch (`0.1.1`): Non-breaking fixes, internal refactors, doc updates.
+- Minor (`0.2.0`): New models, endpoints, new metrics.
+- Major (`1.0.0`): Stable API surface, production deployment, breaking changes.
+
+### Planned Automation
+- CI check to ensure tag matches `__version__` and `pyproject.toml`.
+- Changelog diff generation in release PR template.
