@@ -1,0 +1,41 @@
+[project]
+name = "ecommerce-demand-forecasting"
+version = "0.1.0"
+description = "E-commerce demand forecasting with baselines, Prophet, and deep learning models (upcoming)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+  {name = "Zak Las", email = ""}
+]
+keywords = ["forecasting", "time-series", "demand", "ecommerce", "m5"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+
+[project.urls]
+Homepage = "https://github.com/Zak-Las/E-commerce-Demand-Forecasting"
+Source = "https://github.com/Zak-Las/E-commerce-Demand-Forecasting"
+Issues = "https://github.com/Zak-Las/E-commerce-Demand-Forecasting/issues"
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.setuptools.package-data]
+"src" = ["**/*.json", "**/*.parquet"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I"]
+ignore = []
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
