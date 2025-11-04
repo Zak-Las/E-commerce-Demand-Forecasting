@@ -1,9 +1,9 @@
-"""Parametric tests for metric functions used in baseline evaluation."""
+"""Parametric tests for shared metric functions (centralized in metrics module)."""
 import math
 import numpy as np
 import pytest
 
-from src.evaluation.baselines import rmse, mae, mape, smape, wape, compute_metrics
+from src.evaluation.metrics import rmse, mae, mape, smape, wape, compute_all
 
 
 # RMSE cases: perfect prediction, simple error pattern, negative values
@@ -89,14 +89,13 @@ def test_wape_parametric(actual, pred, expected, is_nan):
         ([0, 5, 0, 10], [0, 6, 1, 12]),
     ],
 )
-def test_compute_metrics_accuracy_relation(actual, pred):
-    metrics = compute_metrics("ITEM_X", np.array(actual), np.array(pred))
+def test_compute_all_accuracy_relation(actual, pred):
+    metrics = compute_all(np.array(actual), np.array(pred))
     w = metrics["wape"]
     acc = metrics["forecast_accuracy"]
     if math.isnan(w):
         assert math.isnan(acc)
     else:
         assert math.isclose(acc, 100.0 - w, rel_tol=1e-9)
-    # Ensure essential keys exist
     for key in ["rmse", "mae", "mape", "smape", "wape", "forecast_accuracy"]:
         assert key in metrics
