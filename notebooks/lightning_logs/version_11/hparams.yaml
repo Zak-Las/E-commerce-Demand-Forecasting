@@ -1,8 +1,0 @@
-dropout: 0.05
-forecast_length: 30
-input_length: 112
-layer_width: 768
-learning_rate: 0.001
-n_layers: 4
-num_blocks_per_stack: 3
-num_stacks: 3

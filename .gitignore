@@ -36,6 +36,7 @@ Thumbs.db
 # Exclude training artifacts and intermediate model directories
 artifacts/
 notebooks/artifacts/
+notebooks/lightning_logs/
 
 # If you later want to track selected checkpoints with Git LFS, remove specific paths here
 # and run: git lfs track "path/to/file.ckpt"
