@@ -111,9 +111,10 @@ class NBeatsModule(pl.LightningModule):
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
         m = self._metrics(y_hat, y)
-        self.log("train_loss", loss, prog_bar=True)
-        self.log("train_mae", m["mae"], prog_bar=True)
-        self.log("train_wape", m["wape"], prog_bar=True)
+        # Log only on epoch to avoid noisy per-step spam and enable proper callback aggregation
+        self.log("train_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("train_mae", m["mae"], prog_bar=True, on_step=False, on_epoch=True)
+        self.log("train_wape", m["wape"], prog_bar=True, on_step=False, on_epoch=True)
         return loss
 
     def validation_step(self, batch, batch_idx: int):  # type: ignore
@@ -121,9 +122,10 @@ class NBeatsModule(pl.LightningModule):
         y_hat = self(x)
         loss = self.loss_fn(y_hat, y)
         m = self._metrics(y_hat, y)
-        self.log("val_loss", loss, prog_bar=True)
-        self.log("val_mae", m["mae"], prog_bar=True)
-        self.log("val_wape", m["wape"], prog_bar=True)
+        # Log epoch-level metrics (EarlyStopping / Checkpoint monitor 'val_loss')
+        self.log("val_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("val_mae", m["mae"], prog_bar=True, on_step=False, on_epoch=True)
+        self.log("val_wape", m["wape"], prog_bar=True, on_step=False, on_epoch=True)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.config.learning_rate)
