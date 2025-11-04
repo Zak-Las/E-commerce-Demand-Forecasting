@@ -38,6 +38,50 @@ data/ (gitignored)    # Raw & processed data (generated locally)
 5. Launch API (placeholder dummy forecasts until model wired):  
 	 `uvicorn src.service.app:app --reload`  
 
+## Reproducibility & One-Command Pipeline
+This project treats notebooks as exploratory artifacts only—every production / evaluation step is scriptable. Recruiters and reviewers can reproduce core results without manual cell execution.
+
+### Deterministic Seeds
+All training scripts set a fixed seed (default 42) via PyTorch Lightning to keep splits and weight initialization stable. Override with `--seed` if needed.
+
+### Data Lineage
+Raw M5 CSVs are downloaded with `download-m5` and never modified. Processed panel Parquet files live under `data/processed/` (gitignored). Feature tensors and model artifacts live under `artifacts/` with versioned filenames.
+
+### Makefile Targets
+```
+make download-m5      # Fetch raw M5 competition files
+make train-nbeats     # Run N-BEATS training using scripts/train_nbeats.py (config-driven)
+make test             # Execute unit & smoke tests (will expand as suite grows)
+make lint             # Static analysis via ruff
+make api              # Start FastAPI (dummy forecasts until model wired)
+```
+
+### Recommended Reproduction Path (Current Phase)
+1. Download data: `make download-m5`
+2. Prepare long panel (partitioned): `python -m src.data.prepare_m5 --raw-dir data/raw/m5 --out-dir data/processed/m5_panel`
+3. (Optional) Build engineered features: `python -m src.features.build_features` (will evolve)
+4. Train N-BEATS: `make train-nbeats` or specify config `python scripts/train_nbeats.py --panel data/processed/m5_panel_subset.parquet --config config/model/nbeats_v1.yaml --register`
+5. Run baselines: `python -m src.evaluation.baselines --panel data/processed/m5_panel_subset.parquet --horizon 30 --top-k 25`
+6. (Upcoming) Backtest harness: `python -m src.evaluation.backtest --panel ... --checkpoint artifacts/models/nbeats_0.1.0.ckpt --horizon 30 --stride 7 --windows 12`
+7. Inspect artifacts: `artifacts/models/*.ckpt`, `*_metrics.json`, baseline parquet summaries.
+
+### Planned Single Command (Future)
+`make reproduce` will orchestrate: download → prepare → features → baselines → train → backtest → generate leaderboard.
+
+### Model Registry & Promotion
+`scripts/train_nbeats.py --register` appends metadata to `artifacts/models/registry.json` (stage=candidate). A future promotion command will flip a candidate to production (for service loading) while archiving previous prod entries.
+
+### Why This Matters
+Explicit scripted path + versioned artifacts demonstrates engineering rigor: hiring managers can audit each stage, diff config changes, and verify claimed metric improvements (e.g., ≥8 WAPE point gain vs seasonal naive).
+
+### Integrity & Hashing (Planned)
+Panel subsets and feature exports will include a SHA256 hash in a sidecar JSON for provenance, ensuring reproducibility even if intermediate files are regenerated.
+
+### Notebook Usage Policy
+Exploration only: training and evaluation logic lives in `src/` & `scripts/`. Final results visualization notebook will consume artifacts, not produce them.
+
+---
+
 ## API (Initial Skeleton)
 POST `/forecast`
 ```json

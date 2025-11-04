@@ -1,74 +1,37 @@
 """Baseline forecast evaluation for M5 subset.
 
 Implements:
-  - Naive (Last Value) baseline
-  - Seasonal Naive (Weekly pattern) baseline
+    - Naive (last value) baseline
+    - Seasonal naive (weekly repeating pattern)
 
-Generates per-item metrics (RMSE, MAE, MAPE, sMAPE, WAPE, Forecast Accuracy) for top K items
-and writes artifacts:
-  artifacts/metrics_naive_baseline.parquet
-  artifacts/metrics_seasonal_naive_baseline.parquet
-  artifacts/summary_naive_baselines.json
+Refactored to use centralized metric functions from `src.evaluation.metrics` to avoid
+duplication and maintain a single source of truth for RMSE, MAE, MAPE, sMAPE, WAPE, Accuracy.
+
+Outputs:
+    artifacts/metrics_naive_baseline.parquet
+    artifacts/metrics_seasonal_naive_baseline.parquet
+    artifacts/summary_naive_baselines.json
 
 Usage:
-  python -m src.evaluation.baselines \
-      --panel data/processed/m5_panel_subset.parquet \
-      --horizon 28 --top-k 25
+    python -m src.evaluation.baselines \
+            --panel data/processed/m5_panel_subset.parquet \
+            --horizon 30 --top-k 25
 
 Assumptions:
-  - Panel parquet contains columns: item_id, date, demand (date convertible to datetime)
-  - Multiple store rows aggregated by summing demand per date
+    - Panel parquet contains columns: item_id, date, demand (date convertible to datetime)
+    - Aggregation to item-level demand already performed (store demand summed externally or in panel)
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import math
 from pathlib import Path
 from typing import Dict, List
 
 import numpy as np
 import pandas as pd
-
-EPS = 1e-8
-
-
-def rmse(a, b):
-    return math.sqrt(np.mean((np.array(a) - np.array(b)) ** 2))
-
-
-def mae(a, b):
-    return float(np.mean(np.abs(np.array(a) - np.array(b))))
-
-
-def mape(a, b):
-    a = np.array(a); b = np.array(b)
-    return 100.0 * float(np.mean(np.abs(a - b) / (np.abs(a) + EPS)))
-
-
-def smape(a, b):
-    a = np.array(a); b = np.array(b)
-    return 100.0 * float(np.mean(np.abs(a - b) / ((np.abs(a) + np.abs(b)) / 2.0 + EPS)))
-
-
-def wape(a, b):
-    a = np.array(a); b = np.array(b)
-    denom = np.sum(np.abs(a))
-    return float('nan') if denom == 0 else 100.0 * float(np.sum(np.abs(a - b)) / denom)
-
-
-def compute_metrics(item_id: str, actual: np.ndarray, pred: np.ndarray) -> Dict[str, float]:
-    w = wape(actual, pred)
-    return {
-        "item_id": item_id,
-        "rmse": rmse(actual, pred),
-        "mae": mae(actual, pred),
-        "mape": mape(actual, pred),
-        "smape": smape(actual, pred),
-        "wape": w,
-        "forecast_accuracy": 100.0 - w if not np.isnan(w) else float('nan'),
-    }
+from src.evaluation.metrics import compute_all  # central metric utilities
 
 
 def build_item_series(df: pd.DataFrame, item_id: str) -> pd.DataFrame:
@@ -118,11 +81,13 @@ def evaluate_baselines(panel_path: Path, horizon: int, top_k: int) -> Dict[str, 
         test = daily.iloc[-horizon:]
         actual = test["demand"].values
 
-        naive_pred = forecast_naive_last_value(train["demand"], horizon)
-        seasonal_pred = forecast_seasonal_weekly(train["demand"], horizon)
+    naive_pred = forecast_naive_last_value(train["demand"], horizon)
+    seasonal_pred = forecast_seasonal_weekly(train["demand"], horizon)
 
-        naive_rows.append(compute_metrics(itm, actual, naive_pred))
-        seasonal_rows.append(compute_metrics(itm, actual, seasonal_pred))
+    m_naive = compute_all(actual, naive_pred); m_naive["item_id"] = itm
+    m_seasonal = compute_all(actual, seasonal_pred); m_seasonal["item_id"] = itm
+    naive_rows.append(m_naive)
+    seasonal_rows.append(m_seasonal)
 
     artifacts_dir = Path("artifacts")
     artifacts_dir.mkdir(parents=True, exist_ok=True)
