@@ -1,0 +1,23 @@
+# N-BEATS v1 configuration (capstone primary model)
+version: 0.1.0
+input_length: 112            # 16 weeks history
+forecast_length: 30           # fixed horizon (API contract)
+learning_rate: 0.001
+num_stacks: 3
+num_blocks_per_stack: 3
+layer_width: 768
+n_layers: 4
+dropout: 0.05
+batch_size: 64
+epochs: 20
+max_items: 50                 # cap for CPU runtime ≤ ~1h
+max_windows_per_item: 40
+val_fraction: 0.1
+seed: 42
+# Backtest params (used by future harness)
+backtest:
+  stride: 7
+  windows: 12                # number of rolling windows (approx 12*7 ≈ 84 days coverage)
+metrics:
+  primary: WAPE
+  target_wape_improvement_pct: 8  # vs seasonal naive baseline
