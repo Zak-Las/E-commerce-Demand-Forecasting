@@ -1,7 +1,7 @@
 {
-  "validation_mse": 2.3851331848847237,
-  "validation_mae": 1.2122682332992554,
-  "validation_wape": 7.598578033400634,
+  "validation_mse": 2.1796077728271483,
+  "validation_mae": 1.1598331570625304,
+  "validation_wape": 7.273693581176644,
   "config": {
     "input_length": 112,
     "forecast_length": 30,
