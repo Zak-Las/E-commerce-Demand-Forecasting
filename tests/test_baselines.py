@@ -95,6 +95,30 @@ def test_evaluate_baselines_integration(tmp_path):
     assert len(naive_df) <= 2 and len(seasonal_df) <= 2
 
 
+def test_seasonal_weekly_fallback_short_history():
+    """History length < 7 should fallback to naive last value repetition."""
+    short_hist = pd.Series([2, 4, 6])  # len=3 < 7
+    horizon = 5
+    fc = forecast_seasonal_weekly(short_hist, horizon)
+    assert len(fc) == horizon
+    assert np.all(fc == 6), "Forecast should repeat last value for short history"
+
+
+def test_wape_mixed_zero_actuals():
+    actual = [0, 5, 0, 10]
+    pred = [0, 6, 1, 12]  # errors: 0,1,1,2 => sum=4; denom=sum(actual)=15 => wape=26.666...
+    expected = 100 * (4/15)
+    assert math.isclose(wape(actual, pred), expected, rel_tol=1e-6)
+
+
+def test_compute_metrics_all_zero_actuals():
+    actual = np.zeros(4)
+    pred = np.array([1, 2, 0, 3])
+    metrics = compute_metrics("ITEM_ZERO", actual, pred)
+    assert math.isnan(metrics["wape"])
+    assert math.isnan(metrics["forecast_accuracy"])
+
+
 if __name__ == "__main__":
     import pytest  # pragma: no cover
     raise SystemExit(pytest.main([__file__]))
