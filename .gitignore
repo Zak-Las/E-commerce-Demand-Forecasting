@@ -33,6 +33,12 @@ Thumbs.db
 # Models
 *.pth
 *.ckpt
+# Exclude training artifacts and intermediate model directories
+artifacts/
+notebooks/artifacts/
+
+# If you later want to track selected checkpoints with Git LFS, remove specific paths here
+# and run: git lfs track "path/to/file.ckpt"
 
 # Figures
 # figures/
