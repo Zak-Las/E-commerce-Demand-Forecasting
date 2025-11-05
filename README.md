@@ -1,95 +1,100 @@
-# E-commerce Demand Forecasting: A Comparative Analysis of N-BEATS and Prophet
+# E-commerce Demand Forecasting (M5 Subset, Notebook-Centric Capstone)
 
-This capstone project provides an end-to-end solution for forecasting 30-day product demand for a subset of the M5 e-commerce dataset. It demonstrates a rigorous data science workflow, from data processing and quality assurance to model development, evaluation, and iterative improvement.
+Forecast 30-day daily demand for a subset of items from the M5 dataset. The project is intentionally lean: pure notebook workflow, CPU-only (Mac M1 Pro), no external datasets, no deployment claims. Focus is on clear data handling, a transparent baseline (Prophet), a deep model (N-BEATS), and a small feature engineering iteration that improves validation error.
 
-The primary goal is to compare the performance of a modern deep learning architecture (N-BEATS) against a well-established statistical baseline (Prophet), showcasing the ability to not only build complex models but also to validate them against robust alternatives.
+## 1. Problem & Scope
+Retail teams need short‑term item-level demand forecasts to plan inventory. We frame a simplified version: given 112 days of history, predict the next 30 days per item. Scope deliberately excludes real-time serving, distributed training, or multi-source fusion to keep the capstone concise under a two‑day deadline.
 
-## Key Highlights & Demonstrated Skills
+## 2. Data
+Source: M5 competition dataset (subset panel). If the processed parquet is missing, notebooks generate a synthetic fallback to keep the pipeline runnable. Data artifacts are stored under `data/processed/` and tracked (large files via Git LFS settings already in repo).
 
-This project directly showcases skills and competencies relevant to a data science role, including:
+Quality checks (missing values, zero-demand rates, date continuity, outliers) and light cleaning (clip negatives, fill NA) are performed in a single consolidated notebook: `notebooks/data_prep.ipynb`. A JSON & Markdown quality report is saved to `artifacts/data/`.
 
-*   **Data Exploration and Curation:** A dedicated data quality notebook (`notebooks/data_quality.ipynb`) programmatically assesses the dataset for integrity issues like gaps, zero-inflation, and outliers, producing a detailed quality report (`artifacts/data_quality_report.json`).
-*   **Model Design, Development, and Validation:**
-    *   Implementation of **N-BEATS**, a modern deep learning model for time series forecasting, using PyTorch Lightning.
-    *   Implementation of **Prophet** as a strong statistical baseline.
-    *   Rigorous comparison using multiple metrics (WAPE, MAE) and a rolling-origin backtest methodology.
-*   **Rapid Innovation and Prototyping:** A feature engineering experiment was conducted on the N-BEATS model, where a residual series was created to improve performance. This demonstrated an iterative, hypothesis-driven approach to model improvement, resulting in a measurable lift in accuracy.
-*   **Visualization and Storytelling:** Notebooks are structured to tell a clear story, with visualizations for loss curves, forecast comparisons, and data quality issues.
-*   **Reproducibility:** The entire workflow is encapsulated in a series of Jupyter notebooks and Python scripts, ensuring that the results can be easily reproduced.
+## 3. Workflow Overview
+Run notebooks in this order:
+1. `notebooks/data_prep.ipynb` – Load / fallback synth generation, profile, clean, quality report.
+2. `notebooks/prophet_baseline.ipynb` – Fit Prophet on an aggregate series + small item subset; produce baseline metrics JSON.
+3. `notebooks/nbeats_training.ipynb` – Train N-BEATS (global scaling), evaluate, mini rolling-origin backtest, save checkpoint + metrics JSON.
+4. (Within same notebook) Feature Engineering iteration: residual (weekday deseason + lag7 mean) re-training, metrics comparison, model card generation.
 
-## Tech Stack
+Artifacts directory (`artifacts/models/`) holds checkpoints, metrics, model card.
 
-*   **Core Libraries:** Python, Pandas, NumPy, PyTorch, PyTorch Lightning, Prophet, Scikit-learn
-*   **Visualization:** Matplotlib, Seaborn
-*   **Environment:** The project is configured to run on a CPU-only environment.
+## 4. Metrics
+Primary metric: WAPE (Weighted Absolute Percentage Error). Forecast Accuracy is defined as (100 − WAPE). MAE and sMAPE reported for auxiliary context. Metrics logic consolidated in `src/evaluation/metrics.py` and reused directly by notebooks.
 
-## Repository Structure
+## 5. Results (Placeholder – fill after running)
+| Model | Mean Val WAPE | Mean Val MAE | Accuracy (100-WAPE) | Notes |
+|-------|---------------|--------------|---------------------|-------|
+| Prophet | [populate] | [populate] | [populate] | Baseline statistical model |
+| N-BEATS (Global Scaling) | [populate] | [populate] | [populate] | Deep residual stacks |
+| N-BEATS (Residual FE) | [populate] | [populate] | [populate] | Weekday deseason + lag7 residual |
 
+Model card: `artifacts/models/model_card_notebook.md` summarizes configuration, data hash fragment, and improvements.
+
+## 6. Feature Engineering Iteration (Lean)
+Transformation: weekday mean removal + lag7 rolling mean subtraction → residual → scale (mean/std). Retrain for fewer epochs and compare batch-mean WAPE. Demonstrates hypothesis-driven iteration without expanding input dimensionality.
+
+## 7. GHGSat Alignment (Skill Mapping)
+| GHGSat Responsibility | Repository Evidence |
+|-----------------------|--------------------|
+| Data Exploration & Curation | `data_prep.ipynb` profiling & quality report artifacts |
+| Data Quality Practices | Outlier & continuity checks; explicit cleaning log |
+| Model Design & Validation | Prophet baseline + N-BEATS training notebook; metrics & backtest preview |
+| Rapid Prototyping | Residual feature experiment inside same notebook; synthetic fallback for missing data |
+| Insight Communication | Clear notebook narrative + Model Card + quality report Markdown |
+| Reproducibility | Deterministic seed, saved metrics JSON, consolidated metrics module |
+
+## 8. Reproducibility
+
+Environment options:
+1. Conda: `conda env create -f environment.yml` then `conda activate demand-forecast` (name from file).  
+2. Poetry: `poetry install` (if using `pyproject.toml`).
+
+Then launch Jupyter and execute notebooks in order. If M5 subset parquet is absent, synthetic data will be generated automatically (clearly logged).
+
+Minimal scripts: existing `scripts/` are kept small; core logic lives in notebooks for transparency.
+
+## 9. Limitations & Deliberate Omissions
+To avoid overstating scope:
+- No API service or container deployment.
+- No hyperparameter search / AutoML; parameters chosen manually for clarity.
+- No multi-dataset fusion (M5 only).
+- No probabilistic / quantile forecasts (point forecasts only).
+- CPU-only; no attempt to optimize for GPU.
+
+## 10. Next Modest Extensions (Not Implemented Yet)
+If time allowed, logical incremental steps would be: calendar & holiday covariates, per-item scaling variant, early stopping + lightweight HP tuning, quantile head for uncertainty. These are noted but intentionally deferred.
+
+## 11. Repository Structure (Relevant Subset)
 ```
-├── artifacts/            # Stores all generated outputs (models, metrics, reports)
-├── config/               # Configuration files for models
-├── data/                 # Raw and processed data (tracked by Git LFS)
-├── docs/                 # Project documentation (e.g., architecture)
-├── notebooks/            # Jupyter notebooks for the main workflow
-│   ├── data_processing.ipynb
-│   ├── data_quality.ipynb
-│   ├── prophet_baseline.ipynb
-│   └── nbeats_training.ipynb
-├── src/                  # Source code for data processing, models, etc.
-├── tests/                # Unit tests for core functions
-└── README.md             # This file
+notebooks/
+  data_prep.ipynb          # Profiling + cleaning + quality artifacts
+  prophet_baseline.ipynb   # Baseline statistical model
+  nbeats_training.ipynb    # Deep model + backtest + feature engineering
+src/
+  evaluation/metrics.py    # Central metric implementations
+artifacts/
+  data/                    # Quality report JSON/MD
+  models/                  # Checkpoints + metrics + model card
 ```
 
-## How to Reproduce the Results
+## 12. Running Time (Approximate)
+On Mac M1 Pro (CPU only):
+- Data prep: < 1 min
+- Prophet baseline (subset of ~10 items + aggregate): a few minutes
+- N-BEATS base (20 epochs): depends on subset size; keep item cap low (e.g. 50) to finish within ~10–15 min
+- Residual feature retrain (10 epochs): ~5–8 min
 
-To run this project and reproduce the artifacts, follow these steps in order:
+These approximations help reviewers gauge practicality; actual times logged in model card/checklist when finalized.
 
-1.  **Set up the environment:**
-    ```bash
-    # It is recommended to use a virtual environment
-    python -m venv venv
-    source venv/bin/activate
-    pip install -r requirements.txt
-    ```
-    *(Note: A `requirements.txt` file should be created from the environment)*
+## 13. How to Fill Results Table
+After running notebooks:
+1. Read JSON artifacts in `artifacts/models/`.
+2. Insert metric values into the Results section (replace placeholders).
+3. Commit updated README + metrics + model card.
 
-2.  **Run the Notebooks in Sequence:** Execute the following Jupyter notebooks from top to bottom. Each notebook builds on the artifacts of the previous one.
+## 14. Ethical & Practical Notes
+Forecasting quality depends on data representativeness. Synthetic fallback is only for process demonstration and should not be evaluated as real performance. No claims made about production readiness.
 
-    a. **`notebooks/data_processing.ipynb`**
-       *   **Purpose:** Converts the raw M5 CSV files into a clean, aggregated panel DataFrame (`m5_panel_subset.parquet`).
-       *   **Key Output:** `data/processed/m5_panel_subset.parquet`
-
-    b. **`notebooks/data_quality.ipynb`**
-       *   **Purpose:** Analyzes the processed panel for integrity issues.
-       *   **Key Output:** `artifacts/data_quality_report.json`
-
-    c. **`notebooks/prophet_baseline.ipynb`**
-       *   **Purpose:** Trains and evaluates the Prophet baseline model.
-       *   **Key Output:** `artifacts/models/prophet_metrics.json`
-
-    d. **`notebooks/nbeats_training.ipynb`**
-       *   **Purpose:** Trains the baseline N-BEATS model and the improved residual-based N-BEATS model.
-       *   **Key Outputs:** Checkpoints and metrics for both N-BEATS models, including `artifacts/models/nbeats_notebook_metrics.json` and `artifacts/models/nbeats_feature_experiment_metrics.json`.
-
-## Results & Analysis
-
-The project culminates in a comparison between three models: Prophet, a baseline N-BEATS model, and an improved N-BEATS model trained on engineered features (residuals).
-
-| Model                       | Mean Validation WAPE | Notes                                         |
-| --------------------------- | -------------------- | --------------------------------------------- |
-| **Prophet**                 | *~[Value from JSON]* | Strong statistical baseline.                  |
-| **N-BEATS (Baseline)**      | *~[Value from JSON]* | Deep learning model on globally scaled data.  |
-| **N-BEATS (Residual Feature)** | *~[Value from JSON]* | N-BEATS trained on a de-seasonalized residual series. |
-
-***Note:** These values should be filled in from the generated `.json` artifact files.*
-
-The results indicate that while Prophet provides a robust baseline, the N-BEATS model, especially after the feature engineering experiment, achieves superior performance. This highlights the power of deep learning for capturing complex patterns in time series data, as well as the value of iterative, data-centric improvements.
-
-## Next Steps
-
-This project establishes a strong foundation. Future work could include:
-
-*   **Advanced Feature Engineering:** Incorporate calendar events, holidays, and price information as explicit covariates.
-*   **Probabilistic Forecasting:** Extend the N-BEATS model with quantile heads to produce prediction intervals, not just point forecasts.
-*   **Scalability:** Modularize the notebook code into a script-based pipeline (e.g., using `luigi` or `kedro`) to handle larger datasets and automate re-training.
-*   **Deployment:** Containerize the best-performing model with Docker and expose it via a REST API (e.g., using FastAPI) for on-demand forecasts.
+---
+This lean capstone demonstrates disciplined, transparent forecasting workflow aligned with real data science responsibilities without over-claiming deployment expertise.
