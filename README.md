@@ -1,4 +1,84 @@
-# E-commerce Demand Forecasting
+# Lean E-commerce Demand Forecasting
+
+Predict the next 30 days of daily item-level demand (M5 subset or synthetic) with a single deep learning model (N-BEATS). Repository is intentionally minimal to showcase rapid prototyping, evaluation, and clear communication — ideal for portfolio & role alignment.
+
+## Included
+* Sliding window dataset builder: `src/data/dataset_nbeats.py`
+* Lightweight N-BEATS implementation: `src/models/nbeats_module.py`
+* Central metric functions (WAPE, MAE, etc.): `src/evaluation/metrics.py`
+* End-to-end training & analysis notebook: `notebooks/nbeats_training.ipynb`
+
+Removed for simplicity: API service, Dockerfile, Makefile, registry, heavy backtest harness, production infra.
+
+## Quick Start
+1. Create environment (example):
+	 ```bash
+	 conda env create -f environment.yml  # or: pip install -e .
+	 conda activate demand-forecast
+	 ```
+2. Ensure panel parquet at `data/processed/m5_panel_subset.parquet` (columns: `item_id,date,demand`). If absent, notebook synthesizes data.
+3. Open `notebooks/nbeats_training.ipynb` → Run all.
+4. Compare model WAPE vs seasonal naive (repeat last 7 days). Iterate.
+
+## Core Metric
+WAPE (Weighted Absolute Percentage Error):
+```
+WAPE = sum(|y - ŷ|) / sum(|y|) * 100
+Accuracy = 100 - WAPE
+```
+Baseline: seasonal naive (weekly repeat). Goal: show disciplined evaluation even if improvement is modest.
+
+## Relevance to D.S. Roles
+This lean forecasting project evidences the competencies requested in the GHGSat posting:
+| D.S. Responsibility / Attribute | Evidence in Repo |
+| --------------------------------- | ---------------- |
+| Data Exploration & Curation | Notebook EDA steps (panel inspection, scaling), sliding window construction logic |
+| Data Quality Mindset | Planned Phase 1: add `data_quality.ipynb` (missing dates, duplicates, zero-demand streaks) |
+| Rapid Prototyping | Single notebook trains & evaluates N-BEATS + baseline within minutes on CPU |
+| Model Design & Validation | Custom N-BEATS module + seasonal naive comparison + mini rolling-origin preview cell |
+| Metric & Error Analysis | Centralized metrics module, WAPE rationale, per-batch aggregation in notebook |
+| Communicating Insight | Model card generation cell (artifacts: metrics JSON + markdown) |
+| Iterative Improvement | Roadmap: calendar & lag features, per-item scaling, anomaly detection prototype |
+| Impact Orientation | Focus on interpretable accuracy delta vs naive baseline (business-aligned) |
+| Continuous Learning | Clear next-step plan (feature engineering, probabilistic forecasts) |
+
+Use this mapping directly in applications to highlight immediate role fit (time-series rigor → emissions signal interpretation, anomaly detection, and scalable analytics).
+
+## Simple Next Experiments
+1. Calendar features (weekday, month). 
+2. Lag features (lag_7, rolling_mean_7). 
+3. Per-item vs global scaling comparison. 
+4. Early stopping + learning rate schedule.
+
+## Data Assumptions
+Daily demand, dense panel (one row per item/date). If gaps exist, forward-fill or impute before windowing (not yet automated).
+
+## Layout
+```
+src/
+	data/dataset_nbeats.py
+	models/nbeats_module.py
+	evaluation/metrics.py
+notebooks/
+	nbeats_training.ipynb
+data/processed/        # (gitignored)
+artifacts/models/      # notebook outputs (gitignored by default)
+```
+
+## Why Keep It Lean?
+Reduces cognitive load for reviewers; centers on signal: data prep → model → baseline → metrics → artifact. Infrastructure can be reintroduced later without obscuring core skill demonstration.
+
+## Future (Optional) Extensions
+* Feature engineering module
+* Lightweight anomaly detection (emissions-analog bridging)
+* Rolling-origin harness script
+* Simple inference API
+
+## Author
+Zak – Toronto
+
+## License
+TBD
 
 Predict the next 30 days of daily item-level demand using the M5 Forecasting dataset (primary) with optional Instacart enrichment. This capstone showcases depth in modern time series modeling (N-BEATS, later TFT), rigorous backtesting, and deployment via a FastAPI microservice.
 
@@ -145,6 +225,62 @@ Notes:
 * Naive & Seasonal Naive baselines will be added to anchor improvement delta.
 
 Historical table retained for planned models; update again after N-BEATS training.
+
+## Backtesting (Rolling-Origin Evaluation)
+To demonstrate stability (not just a lucky single split), the project runs a rolling-origin backtest using the harness in `src/evaluation/backtest.py`.
+
+### Why Rolling-Origin?
+Traditional single validation splits can overstate performance if the chosen segment has favorable seasonality or demand levels. Rolling-origin evaluates multiple forecast start dates ("origins") and aggregates metrics:
+- Robustness: Mean + variance of WAPE across windows
+- Improvement Consistency: Average ΔWAPE vs seasonal naive baseline
+- Drift Sensitivity: Detect degradation if recent windows worsen
+
+### Procedure (v1)
+1. Select last N chronological origins (default N=12) separated by a stride (default 7 days).
+2. For each origin, use all available history strictly before origin.
+3. Forecast next 30 days with the trained N-BEATS checkpoint (no retraining per window in v1 for speed).
+4. Compute metrics (RMSE, MAE, WAPE, sMAPE, Accuracy) using `src.evaluation.metrics`.
+5. Compute seasonal naive baseline (repeat last 7 days) for comparison.
+6. Persist summary JSON + per-window parquet in `artifacts/backtest/`.
+
+### Command
+```
+python -m src.evaluation.backtest \
+		--panel data/processed/m5_panel_subset.parquet \
+		--checkpoint artifacts/models/nbeats_0.1.0.ckpt \
+		--horizon 30 --stride 7 --windows 12 --max-items 50
+```
+
+### Artifacts
+```
+artifacts/backtest/backtest_summary.json      # aggregate means & deltas
+artifacts/backtest/backtest_windows.parquet   # per-origin metrics
+```
+
+Example (placeholder → will update after first run):
+```jsonc
+{
+	"horizon": 30,
+	"stride": 7,
+	"windows_evaluated": 12,
+	"model_wape_mean": "TBD",
+	"baseline_wape_mean": "TBD",
+	"delta_wape_mean": "TBD (target ≥ 8)",
+	"model_accuracy_mean": "TBD"
+}
+```
+
+### Interpreting Results
+- Primary success signal: Mean ΔWAPE ≥ 8 percentage points vs seasonal naive.
+- Stability heuristic: Std(WAPE) / Mean(WAPE) ≤ ~0.15.
+- If ΔWAPE deteriorates in latest 3 windows, schedule retraining or investigate drift.
+
+### Future Enhancements
+- Optional per-window retraining flag (`--retrain-per-window`) to test robustness of training procedure (deferred).
+- Quantile evaluation (pinball loss) per window for probabilistic forecasts.
+- Automatic leaderboard generation merging baseline + N-BEATS + future TFT.
+
+After first successful run, numbers will replace the placeholders above and feed into the N-BEATS model card.
 
 ## Modeling Focus
 Depth-first: optimize N-BEATS (hyperparameters, early stopping, learning rate scheduling, gradient clipping, lagged feature variants). TFT added after stable N-BEATS benchmark.

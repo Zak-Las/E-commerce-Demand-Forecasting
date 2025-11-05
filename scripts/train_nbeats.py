@@ -11,7 +11,7 @@ Usage (YAML config):
             --panel data/processed/m5_panel_subset.parquet \
             --config config/model/nbeats_v1.yaml
 
-Or ad‑hoc overrides:
+Or ad-hoc overrides:
     python scripts/train_nbeats.py --panel data/processed/m5_panel_subset.parquet \
             --input-length 112 --forecast-length 30 --epochs 10 --layer-width 512
 

@@ -116,9 +116,11 @@ class NBeatsModule(pl.LightningModule):
         self.log("train_mae", m["mae"], prog_bar=True, on_step=False, on_epoch=True)
         self.log("train_wape", m["wape"], prog_bar=True, on_step=False, on_epoch=True)
         # Derive accuracy as (100 - WAPE) when WAPE is not NaN
-        if not torch.isnan(m["wape"]):
+        # m["wape"] is a Python float; use math.isnan for check then convert to tensor for logging
+        import math
+        if not math.isnan(m["wape"]):
             train_accuracy = 100.0 - m["wape"]
-            self.log("train_accuracy", train_accuracy, prog_bar=False, on_step=False, on_epoch=True)
+            self.log("train_accuracy", torch.tensor(train_accuracy), prog_bar=False, on_step=False, on_epoch=True)
         return loss
 
     def validation_step(self, batch, batch_idx: int):  # type: ignore
@@ -130,9 +132,10 @@ class NBeatsModule(pl.LightningModule):
         self.log("val_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
         self.log("val_mae", m["mae"], prog_bar=True, on_step=False, on_epoch=True)
         self.log("val_wape", m["wape"], prog_bar=True, on_step=False, on_epoch=True)
-        if not torch.isnan(m["wape"]):
+        import math
+        if not math.isnan(m["wape"]):
             val_accuracy = 100.0 - m["wape"]
-            self.log("val_accuracy", val_accuracy, prog_bar=False, on_step=False, on_epoch=True)
+            self.log("val_accuracy", torch.tensor(val_accuracy), prog_bar=False, on_step=False, on_epoch=True)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.config.learning_rate)

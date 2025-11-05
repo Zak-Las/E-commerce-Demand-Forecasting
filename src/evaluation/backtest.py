@@ -117,7 +117,27 @@ def run_backtest(cfg: BacktestConfig) -> Dict:
         raise RuntimeError("No valid origins determined; check horizon vs date range")
 
     # Load model checkpoint
-    model = NBeatsModule.load_from_checkpoint(str(cfg.checkpoint_path))
+    # Load checkpoint state_dict directly (handles earlier training script save format)
+    checkpoint = torch.load(cfg.checkpoint_path, map_location="cpu")
+    state_dict = checkpoint.get("state_dict", checkpoint)
+    # Reconstruct config from saved hyperparameters if available
+    hparams = checkpoint.get("hyper_parameters", {})
+    inferred_cfg = NBeatsConfig(
+        input_length=hparams.get("input_length", cfg.input_length),
+        forecast_length=hparams.get("forecast_length", cfg.horizon),
+        num_stacks=hparams.get("num_stacks", 4),
+        num_blocks_per_stack=hparams.get("num_blocks_per_stack", 3),
+        n_layers=hparams.get("n_layers", 4),
+        layer_width=hparams.get("layer_width", 512),
+        learning_rate=hparams.get("learning_rate", 1e-3),
+        dropout=hparams.get("dropout", 0.0),
+    )
+    model = NBeatsModule(inferred_cfg)
+    missing, unexpected = model.load_state_dict(state_dict, strict=False)
+    if missing:
+        print("[backtest] Warning: missing keys:", len(missing))
+    if unexpected:
+        print("[backtest] Warning: unexpected keys:", len(unexpected))
     model.eval()
 
     per_window_rows: List[Dict] = []
