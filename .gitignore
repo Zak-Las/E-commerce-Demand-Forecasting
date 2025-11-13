@@ -19,6 +19,7 @@ env/
 *.h5
 *.zip
 data/
+sandbox/
 
 # Secrets and environment variables
 .env

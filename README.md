@@ -22,20 +22,25 @@ Artifacts directory (`artifacts/models/`) holds checkpoints, metrics, model card
 ## 4. Metrics
 Primary metric: WAPE (Weighted Absolute Percentage Error). Forecast Accuracy is defined as (100 − WAPE). MAE and sMAPE reported for auxiliary context. Metrics logic consolidated in `src/evaluation/metrics.py` and reused directly by notebooks.
 
-## 5. Results (Placeholder – fill after running)
-| Model | Mean Val WAPE | Mean Val MAE | Accuracy (100-WAPE) | Notes |
-|-------|---------------|--------------|---------------------|-------|
-| Prophet | [populate] | [populate] | [populate] | Baseline statistical model |
-| N-BEATS (Global Scaling) | [populate] | [populate] | [populate] | Deep residual stacks |
-| N-BEATS (Residual FE) | [populate] | [populate] | [populate] | Weekday deseason + lag7 residual |
+## 5. Results
+Final metrics extracted from JSON artifacts in `artifacts/models/`.
 
-Model card: `artifacts/models/model_card_notebook.md` summarizes configuration, data hash fragment, and improvements.
+| Model | Val WAPE (%) | Val MAE (units) | Accuracy (%) | Notes |
+|-------|--------------|-----------------|--------------|-------|
+| Prophet (Aggregate) | 24.81 | 77.09 | 75.19 | Trained on aggregate daily demand (scale differs) |
+| N-BEATS (Global Scaling) | 17.66 | 0.14 | 82.34 | Per-item panel windows with global mean/std scaling |
 
-## 6. Feature Engineering Iteration (Lean)
-Transformation: weekday mean removal + lag7 rolling mean subtraction → residual → scale (mean/std). Retrain for fewer epochs and compare batch-mean WAPE. Demonstrates hypothesis-driven iteration without expanding input dimensionality.
+Metric comparability caveat: MAE scales differ (aggregate series vs per-item scaled windows). WAPE (and derived Accuracy = 100 − WAPE) is the primary cross‑model comparison metric.
 
-## 7. GHGSat Alignment (Skill Mapping)
-| GHGSat Responsibility | Repository Evidence |
+Removed: Residual feature engineering experiment (weekday deseason + lag7 residual) was pruned for scope clarity; its intermediate artifacts are excluded from the final table to avoid mixed target scales.
+
+Model card: `artifacts/models/model_card_notebook.md` summarizes configuration and data hash fragment.
+
+## 6. (Removed) Feature Engineering Iteration
+An exploratory residual transformation (weekday deseason + lag7 level removal) was run initially; it did not improve validation performance and introduced a different error scale. To keep the capstone focused and interpretable, the experiment was removed. This demonstrates disciplined scope control: negative or ambiguous experiments are documented but not featured.
+
+## 7. D.S. Alignment (Skill Mapping)
+| D.S. Responsibility | Repository Evidence |
 |-----------------------|--------------------|
 | Data Exploration & Curation | `data_prep.ipynb` profiling & quality report artifacts |
 | Data Quality Practices | Outlier & continuity checks; explicit cleaning log |
