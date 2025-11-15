@@ -32,6 +32,7 @@ credentials.json
 Thumbs.db
 
 # Models
+*.pt
 *.pth
 *.ckpt
 # Exclude training artifacts and intermediate model directories
